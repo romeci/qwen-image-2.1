@@ -13,3 +13,4 @@ Qwen-Image-2.1-Uncensored-GGUF/
 app.log 
 boot.log 
 checkwins.txt
+tmp/
