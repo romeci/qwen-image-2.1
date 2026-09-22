@@ -1,0 +1,10 @@
+# App Qwen Image 2.1 Desktop (gerados/local — não versionar)
+node_modules/
+comfy/
+models/
+outputs/
+venv/
+__pycache__/
+*.gguf
+setup.log
+Qwen-Image-2.1-Uncensored-GGUF/

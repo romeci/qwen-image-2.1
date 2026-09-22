@@ -1,0 +1,141 @@
+{
+  "sg1": {
+    "class_type": "UnetLoaderGGUF",
+    "inputs": {
+      "unet_name": "qwen-image-2.1-UC-Q8_0.gguf"
+    }
+  },
+  "sg2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    }
+  },
+  "sg3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    }
+  },
+  "sg4": {
+    "class_type": "EmptyLatentImage",
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    }
+  },
+  "sg5": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "sg6",
+        0
+      ],
+      "vae": [
+        "sg3",
+        0
+      ]
+    }
+  },
+  "sg6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "model": [
+        "sg8",
+        0
+      ],
+      "positive": [
+        "sg9",
+        0
+      ],
+      "negative": [
+        "sg9",
+        1
+      ],
+      "latent_image": [
+        "sg7",
+        0
+      ],
+      "seed": 1070478148268574,
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1
+    }
+  },
+  "sg7": {
+    "class_type": "ComfySwitchNode",
+    "inputs": {
+      "on_false": [
+        "sg9",
+        2
+      ],
+      "on_true": [
+        "sg4",
+        0
+      ],
+      "switch": false
+    }
+  },
+  "sg8": {
+    "class_type": "QwenImage21Cache",
+    "inputs": {
+      "model": [
+        "sg1",
+        0
+      ],
+      "device": "auto",
+      "dtype": "default"
+    }
+  },
+  "sg9": {
+    "class_type": "TextEncodeQwenImage21",
+    "inputs": {
+      "clip": [
+        "sg2",
+        0
+      ],
+      "images.image_1": [
+        "top5",
+        0
+      ],
+      "vae": [
+        "sg3",
+        0
+      ],
+      "prompt": "Keep the character and pose in <image1> unchanged, put this light blue denim shirt from <image2> on the character, preserve the original facial features, hair, body shape and pose, the denim shirt fits naturally on body, realistic denim fabric texture, natural clothing folds, keep the original background and original lighting, high fashion editorial photography, sharp details",
+      "negative_prompt": "",
+      "resolution": 0,
+      "images.image_2": [
+        "top7",
+        0
+      ]
+    }
+  },
+  "out": {
+    "class_type": "SaveImage",
+    "inputs": {
+      "images": [
+        "sg5",
+        0
+      ],
+      "filename_prefix": "Qwen_image_2.1"
+    }
+  },
+  "top5": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "portrait_model_denim.png"
+    }
+  },
+  "top7": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "clothing_light_blue_denim_shirt.png"
+    }
+  }
+}

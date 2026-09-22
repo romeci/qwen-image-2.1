@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' http://127.0.0.1:*; img-src 'self' http://127.0.0.1:* file: data:; style-src 'self' 'unsafe-inline'" />
+  <title>Qwen Image 2.1 — Desktop</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <span class="logo">◈</span>
+      <div>
+        <h1>Qwen Image 2.1 <span class="sub">Desktop</span></h1>
+        <p class="muted">texto→imagem · edição · transparência RGBA · até 10 referências</p>
+      </div>
+    </div>
+    <div class="server">
+      <span id="statusDot" class="dot offline"></span>
+      <span id="statusText">servidor offline</span>
+      <button id="btnServer" class="ghost">▶ Iniciar servidor</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab active" data-mode="t2i">🎨 Texto → Imagem</button>
+    <button class="tab" data-mode="edit">🖼️ Editar imagem</button>
+  </nav>
+
+  <main>
+    <section class="controls">
+      <label class="grow">
+        <span>Prompt</span>
+        <textarea id="prompt" rows="4" placeholder="Descreva a imagem… (ex.: um letreiro de neon que lê “QWEN 2.1”, noite chuvosa, reflexos no asfalto molhado)"></textarea>
+      </label>
+
+      <details class="neg">
+        <summary>Prompt negativo e parâmetros</summary>
+        <label>
+          <span>Prompt negativo</span>
+          <textarea id="negative" rows="2" placeholder="texto, marca d'água… (vazio = padrão)"></textarea>
+        </label>
+        <div class="row">
+          <label><span>Sampler</span>
+            <select id="sampler">
+              <option>euler</option><option>euler_ancestral</option><option>dpmpp_2m</option><option>dpmpp_2m_sde</option><option>uni_pc</option>
+            </select>
+          </label>
+          <label><span>Scheduler</span>
+            <select id="scheduler">
+              <option>simple</option><option>normal</option><option>karras</option><option>exponential</option><option>sgm_uniform</option>
+            </select>
+          </label>
+          <label><span>Modo RGBA</span>
+            <input type="checkbox" id="rgba" />
+          </label>
+        </div>
+      </details>
+
+      <div class="row params">
+        <label><span>Passos</span><input type="number" id="steps" value="25" min="1" max="80" /></label>
+        <label><span>CFG</span><input type="number" id="cfg" value="1" min="0" max="10" step="0.5" /></label>
+        <label><span>Seed</span>
+          <div class="seedrow"><input type="text" id="seed" placeholder="aleatório" /><button id="btnSeed" class="ghost" title="nova seed">🎲</button></div>
+        </label>
+        <label><span>Proporção</span>
+          <select id="ratio">
+            <option value="1:1">1:1 quadrado</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+            <option value="3:2">3:2</option>
+            <option value="2:3">2:3</option>
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+          </select>
+        </label>
+        <label><span>Resolução</span>
+          <select id="res">
+            <option value="1">1 MP — rápido (1024 base)</option>
+            <option value="2">2 MP — nativo 2048 (mais VRAM)</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="editBox" class="editbox hidden">
+        <div class="row">
+          <button id="btnPick" class="ghost">＋ Adicionar imagens (até 10)</button>
+          <label class="inline"><input type="checkbox" id="customSize" /> forçar tamanho (não seguir a 1ª imagem)</label>
+        </div>
+        <div id="thumbs" class="thumbs"></div>
+        <p class="hint">Imagem 1 = alvo principal. As demais são referências (ex.: roupa, objeto, estilo).</p>
+      </div>
+
+      <div class="actions">
+        <button id="btnGen" class="primary">🎨 Gerar</button>
+        <button id="btnCancel" class="danger" disabled>■ Cancelar</button>
+        <span id="sizeInfo" class="muted"></span>
+      </div>
+
+      <div class="progress hidden" id="progressWrap">
+        <div class="bar"><div id="barFill" class="fill"></div></div>
+        <span id="progressText" class="muted"></span>
+      </div>
+
+      <div id="error" class="error hidden"></div>
+    </section>
+
+    <section class="output">
+      <div id="resultWrap" class="resultwrap hidden">
+        <img id="result" alt="resultado" />
+        <div class="row">
+          <button id="btnOpenFolder" class="ghost">📂 Abrir pasta outputs</button>
+          <button id="btnShowItem" class="ghost">🧭 Mostrar no explorer</button>
+          <a id="btnOpenFull" class="ghost link" target="_blank" rel="noreferrer">↗ abrir em tamanho real</a>
+        </div>
+      </div>
+      <div id="galleryEmpty" class="empty">As imagens geradas aparecem aqui.</div>
+      <h3>Galeria <span class="muted" id="galleryCount"></span></h3>
+      <div id="gallery" class="gallery"></div>
+    </section>
+  </main>
+
+  <details class="logpane">
+    <summary>Log</summary>
+    <pre id="log"></pre>
+  </details>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

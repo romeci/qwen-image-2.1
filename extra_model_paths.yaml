@@ -1,0 +1,13 @@
+qwen_app:
+  base_path: Z:/qwen-image-2.1/models
+  diffusion_models: diffusion_models
+  unet: diffusion_models
+  clip: text_encoders
+  text_encoders: text_encoders
+  vae: vae
+  loras: loras
+  clip_vision: clip_vision
+  controlnet: controlnet
+  embeddings: embeddings
+  upscale_models: upscale_models
+  checkpoints: checkpoints
