@@ -107,17 +107,28 @@ function stopServer() {
 
 function patchWorkflow(wf, opts) {
   const images = opts.images || [];
-  let imgIdx = 0;
-  const existingLoaders = Object.entries(wf).filter(([, n]) => n.class_type === 'LoadImage');
-  // garante um LoadImage por imagem selecionada
-  for (let i = 0; i < images.length; i++) {
-    if (i < existingLoaders.length) continue;
-    const id = `li_${i + 1}`;
+  // LoadImages do workflow + novos p/ excedente de referências
+  const loaderIds = Object.keys(wf).filter((k) => wf[k].class_type === 'LoadImage');
+  const teOf = () => Object.values(wf).find((n) => n.class_type === 'TextEncodeQwenImage21');
+  while (loaderIds.length < images.length) {
+    const id = `li_${loaderIds.length + 1}`;
     wf[id] = { class_type: 'LoadImage', inputs: { image: '' } };
-    const te = Object.values(wf).find((n) => n.class_type === 'TextEncodeQwenImage21');
-    if (te) te.inputs[`images.image_${i + 1}`] = [id, 0];
+    loaderIds.push(id);
+    const te = teOf();
+    if (te) te.inputs[`images.image_${loaderIds.length}`] = [id, 0];
   }
-  for (const [id, node] of Object.entries(wf)) {
+  // atribui imagem a cada LoadImage; os SEM imagem são descartados (nó + refs)
+  loaderIds.forEach((id, i) => {
+    if (i < images.length) { wf[id].inputs.image = images[i]; return; }
+    delete wf[id];
+    for (const n of Object.values(wf)) {
+      if (n.class_type !== 'TextEncodeQwenImage21') continue;
+      for (const [k, v] of Object.entries(n.inputs)) {
+        if (Array.isArray(v) && v[0] === id) delete n.inputs[k];
+      }
+    }
+  });
+  for (const [, node] of Object.entries(wf)) {
     switch (node.class_type) {
       case 'TextEncodeQwenImage21':
         node.inputs.prompt = opts.prompt || '';
@@ -137,19 +148,10 @@ function patchWorkflow(wf, opts) {
       case 'ComfySwitchNode':
         node.inputs.switch = !!opts.customSize;
         break;
-      case 'LoadImage':
-        if (imgIdx < images.length) node.inputs.image = images[imgIdx++];
-        break;
       case 'SaveImage':
         node.inputs.filename_prefix = opts.mode === 'edit' ? 'Qwen_edit' : 'Qwen_t2i';
         break;
     }
-  }
-  // reaponta refs de LoadImage recém-criados e remove image_* vazios do edit
-  for (const [id, node] of Object.entries(wf)) {
-    if (node.class_type !== 'LoadImage') continue;
-    const idx = Object.keys(wf).filter((k) => wf[k].class_type === 'LoadImage').indexOf(id);
-    if (idx < images.length) node.inputs.image = images[idx];
   }
 }
 

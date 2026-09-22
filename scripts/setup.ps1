@@ -10,6 +10,13 @@ function Log($m) { $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $m"; Write
 
 Log "=== setup iniciado ==="
 
+# 0) sanitiza o PATH: entradas quebradas (ex.: Cua driver, junction não confiável)
+#    derrubam o pip com [WinError 448] "ponto de montagem não confiável"
+$cleanPath = ($env:PATH -split ';' | Where-Object { $_ -and $_ -notmatch '(?i)cua' }) -join ';'
+$env:PATH = $cleanPath
+[Environment]::SetEnvironmentVariable("PATH", $cleanPath, "Process")
+Log "PATH sanitizado (entradas removidas: $((($env:PATH -split ';').Count)))"
+
 # 1) dirs + mover o GGUf local para o lugar correto
 New-Item -ItemType Directory -Force -Path "$ROOT\models\diffusion_models", "$ROOT\models\text_encoders", "$ROOT\models\vae", "$ROOT\outputs", "$ROOT\comfy" | Out-Null
 $gguf = Get-ChildItem -Path $ROOT -Recurse -Depth 3 -Filter "*.gguf" -ErrorAction SilentlyContinue |
@@ -30,8 +37,9 @@ $PY = "$VENV\Scripts\python.exe"
 
 # 3) torch CUDA (Windows: PyPI = CPU; SEMPRE usar o index da NVIDIA)
 Log "instalando torch+torchvision+torchaudio (cu128)..."
-& "$VENV\Scripts\pip.exe" install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
+& $PY -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu128 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "falha ao instalar torch" }
+Log "torch OK: $(& $PY -c 'import torch; print(torch.__version__, torch.cuda.is_available())')"
 
 # 4) ComfyUI
 if (-not (Test-Path "$COMFY\ComfyUI\main.py")) {
@@ -39,7 +47,7 @@ if (-not (Test-Path "$COMFY\ComfyUI\main.py")) {
   git clone --depth 1 https://github.com/comfyanonymous/ComfyUI "$COMFY\ComfyUI"
 }
 Log "instalando requirements do ComfyUI..."
-& "$VENV\Scripts\pip.exe" install -r "$COMFY\ComfyUI\requirements.txt" 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
+& $PY -m pip install -r "$COMFY\ComfyUI\requirements.txt" 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "falha nos requirements do ComfyUI" }
 
 # 5) ComfyUI-GGUF (loader do .gguf)
@@ -47,7 +55,18 @@ if (-not (Test-Path "$COMFY\ComfyUI\custom_nodes\ComfyUI-GGUF")) {
   Log "clonando ComfyUI-GGUF..."
   git clone --depth 1 https://github.com/city96/ComfyUI-GGUF "$COMFY\ComfyUI\custom_nodes\ComfyUI-GGUF"
 }
-& "$VENV\Scripts\pip.exe" install -r "$COMFY\ComfyUI\custom_nodes\ComfyUI-GGUF\requirements.txt" 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
+# 5b) PATCH obrigatório: o arch do seu gguf e 'qwen_image21' e o node so aceita 'qwen_image'
+#     (refazer se o ComfyUI-GGUF for atualizado por git pull)
+$loader = "$COMFY\ComfyUI\custom_nodes\ComfyUI-GGUF\loader.py"
+$src = Get-Content -Raw -LiteralPath $loader
+if ($src -notmatch 'qwen_image21') {
+  $src = $src -replace '"lumina2", "qwen_image"', '"lumina2", "qwen_image", "qwen_image21"'
+  Set-Content -LiteralPath $loader -Value $src -NoNewline
+  Log "loader.py patchado (IMG_ARCH_LIST += qwen_image21)"
+} else {
+  Log "loader.py ja patchado"
+}
+& $PY -m pip install -r "$COMFY\ComfyUI\custom_nodes\ComfyUI-GGUF\requirements.txt" 2>&1 | Tee-Object -FilePath $LOG -Append | Out-Null
 
 # 6) mapa de pastas de modelos (models/ na raiz do app)
 Copy-Item "$ROOT\extra_model_paths.yaml" "$COMFY\ComfyUI\extra_model_paths.yaml" -Force

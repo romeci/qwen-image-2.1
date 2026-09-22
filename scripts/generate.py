@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI do Qwen-Image-2.1 — mesma lógica do app Electron (por isso serve de teste E2E).
+r"""CLI do Qwen-Image-2.1 — mesma lógica do app Electron (por isso serve de teste E2E).
 
 Requer o servidor ComfyUI de pé (o app Electron sobe sozinho, ou manualmente:
   comfy\venv\Scripts\python.exe comfy\ComfyUI\main.py --listen 127.0.0.1 --port 8188 --output-directory outputs
@@ -22,21 +22,35 @@ def req(method, path, body=None, timeout=60):
     r = urllib.request.Request(BASE + path, data=data, method=method)
     if data:
         r.add_header("Content-Type", "application/json")
-    with urllib.request.urlopen(r, timeout=timeout) as resp:
-        return json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(r, timeout=timeout) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        raise SystemExit(f"HTTP {e.code} em {path}:\n{body[:4000]}")
 
 
 def patch_workflow(wf, o):
     loaders = [k for k, n in wf.items() if n["class_type"] == "LoadImage"]
-    for i in range(len(o.images)):
-        if i < len(loaders):
-            continue
-        wid = f"li_{i+1}"
+    te_of = lambda: next((n for n in wf.values() if n["class_type"] == "TextEncodeQwenImage21"), None)
+    while len(loaders) < len(o.images):
+        wid = f"li_{len(loaders)+1}"
         wf[wid] = {"class_type": "LoadImage", "inputs": {"image": ""}}
-        te = next((n for n in wf.values() if n["class_type"] == "TextEncodeQwenImage21"), None)
+        loaders.append(wid)
+        te = te_of()
         if te:
-            te.inputs[f"images.image_{i+1}"] = [wid, 0]
-    img_i = 0
+            te.inputs[f"images.image_{len(loaders)}"] = [wid, 0]
+    # atribui imagem a cada LoadImage; os SEM imagem são descartados (nó + refs)
+    for idx, wid in enumerate(list(loaders)):
+        if idx < len(o.images):
+            wf[wid]["inputs"]["image"] = o.images[idx]
+            continue
+        del wf[wid]
+        for n in wf.values():
+            if n["class_type"] != "TextEncodeQwenImage21":
+                continue
+            for k in [k for k, v in n["inputs"].items() if isinstance(v, list) and v and v[0] == wid]:
+                del n["inputs"][k]
     for node in wf.values():
         c = node["class_type"]
         inp = node["inputs"]
@@ -53,10 +67,6 @@ def patch_workflow(wf, o):
             inp["width"], inp["height"] = o.width, o.height
         elif c == "ComfySwitchNode":
             inp["switch"] = bool(o.custom_size)
-        elif c == "LoadImage":
-            if img_i < len(o.images):
-                inp["image"] = o.images[img_i]
-                img_i += 1
         elif c == "SaveImage":
             inp["filename_prefix"] = "Qwen_edit" if o.mode == "edit" else "Qwen_t2i"
 
