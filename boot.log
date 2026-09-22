@@ -1,5 +1,0 @@
-[main] boot pid=1864
-[main] whenReady ok
-[main] nova janela handle=8
-[main] createWindow chamado; janelas=1
-[main] renderer carregado
