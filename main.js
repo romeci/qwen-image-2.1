@@ -8,6 +8,11 @@ const { spawn } = require('child_process');
 const WebSocket = require('ws');
 
 const ROOT = __dirname;
+// diagnostico de boot: anexa ao app.log (tarefa ja redireciona stdout/stderr p/ ele)
+const mlog = (m) => { try { fs.appendFileSync(path.join(ROOT, 'boot.log'), `[main] ${m}\n`); } catch {} };
+process.on('uncaughtException', (e) => mlog('uncaught: ' + (e && (e.stack || e.message || e))));
+process.on('unhandledRejection', (e) => mlog('unhandled: ' + (e && (e.stack || e.message || JSON.stringify(e)))));
+mlog('boot pid=' + process.pid);
 const COMFY_DIR = path.join(ROOT, 'comfy', 'ComfyUI');
 const PY_EXE = path.join(ROOT, 'comfy', 'venv', 'Scripts', 'python.exe');
 const PORT = 8188;
@@ -288,7 +293,10 @@ function createWindow() {
     title: 'Qwen Image 2.1 — Desktop',
     webPreferences: { preload: path.join(ROOT, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
+  mlog('nova janela handle=' + win.getNativeWindowHandle().length);
   win.loadFile(path.join(ROOT, 'renderer', 'index.html'));
+  win.webContents.on('did-finish-load', () => mlog('renderer carregado'));
+  win.webContents.on('did-fail-load', (_e, code, desc) => mlog('renderer FALHOU: ' + code + ' ' + desc));
 }
 
 ipcMain.handle('server:start', () => startServer().then((s) => ({ ok: true, state: s })).catch((e) => ({ ok: false, error: e.message })));
@@ -310,8 +318,10 @@ ipcMain.handle('ui:show-item', (_e, p) => { shell.showItemInFolder(p); return { 
 ipcMain.handle('ui:get-defaults', () => ({ outDir: OUT_DIR, root: ROOT, comfyDir: COMFY_DIR, port: PORT }));
 
 app.whenReady().then(() => {
+  mlog('whenReady ok');
   fs.mkdirSync(OUT_DIR, { recursive: true });
   createWindow();
+  mlog('createWindow chamado; janelas=' + BrowserWindow.getAllWindows().length);
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { stopServer(); app.quit(); });
