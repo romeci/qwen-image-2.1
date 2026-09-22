@@ -93,3 +93,21 @@ a.link { text-decoration: none; padding: 9px 16px; border-radius: 9px; border: 1
 .logpane { margin-top: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; }
 .logpane summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 #log { max-height: 220px; overflow: auto; font: 11.5px/1.5 Consolas, monospace; color: #9fb0c8; white-space: pre-wrap; }
+
+/* ===== Modal (visualizar / editar) ===== */
+.modal { position: fixed; inset: 0; z-index: 60; background: rgba(4,7,12,.74); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; padding: 18px; }
+.modal-box { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; width: min(980px, 96vw); max-height: 94vh; overflow: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.modal-head span { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#modalImg { width: 100%; max-height: 62vh; object-fit: contain; background: repeating-conic-gradient(#1c2432 0% 25%, #141a24 0% 50%) 0 0 / 22px 22px; border-radius: 10px; border: 1px solid var(--border); }
+.modal-actions { justify-content: flex-end; }
+#modalView { display: flex; flex-direction: column; gap: 12px; }
+#modalEdit { display: flex; flex-direction: column; gap: 11px; }
+.canvas-wrap { position: relative; display: block; align-self: center; max-width: 100%; }
+.canvas-wrap img { display: block; max-width: 100%; max-height: 54vh; border-radius: 10px; border: 1px solid var(--border); background: repeating-conic-gradient(#1c2432 0% 25%, #141a24 0% 50%) 0 0 / 22px 22px; }
+.canvas-wrap canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+.tool { background: var(--panel2); border: 1px solid var(--border); color: var(--muted); padding: 7px 13px; border-radius: 9px; cursor: pointer; font-size: 13px; }
+.tool.active { color: var(--text); border-color: var(--accent); background: var(--panel2); }
+.tools { align-items: center; }
+.tools input[type="color"] { width: 44px; height: 30px; padding: 2px; border-radius: 6px; }
+.tools input[type="range"] { width: 110px; }

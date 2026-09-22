@@ -350,6 +350,38 @@ ipcMain.handle('ui:pick-images', async () => {
 ipcMain.handle('ui:list-outputs', () => listOutputs());
 ipcMain.handle('ui:open-folder', (_e, p) => shell.openPath(p || OUT_DIR));
 ipcMain.handle('ui:open-full', (_e, p) => shell.openPath(p));
+// compoe imagem base + camada de anotacao (canvas transparente) via PIL do venv
+ipcMain.handle('ui:save-annot', (_e, p) => {
+  try {
+    if (!p || !p.overlay || !p.base) return null;
+    const m = /^data:image\/[a-z+]+;base64,(.+)$/i.exec(p.overlay);
+    if (!m) return null;
+    if (!fs.existsSync(p.base)) return null;
+    const dir = path.join(ROOT, 'tmp');
+    fs.mkdirSync(dir, { recursive: true });
+    const stamp = Date.now();
+    const ovPath = path.join(dir, `ov_${stamp}.png`);
+    const outPath = path.join(dir, `anot_${stamp}.png`);
+    fs.writeFileSync(ovPath, Buffer.from(m[1], 'base64'));
+    const code = [
+      'import sys',
+      'from PIL import Image',
+      'b = Image.open(sys.argv[1]).convert("RGBA")',
+      'o = Image.open(sys.argv[2]).convert("RGBA")',
+      'o = o.resize(b.size) if o.size != b.size else o',
+      'b.alpha_composite(o)',
+      'b.convert("RGB").save(sys.argv[3])',
+    ].join('\n');
+    const r = spawnSync(PY_EXE, ['-c', code, p.base, ovPath, outPath], { windowsHide: true });
+    if (r.status !== 0 || !fs.existsSync(outPath)) {
+      log('[annot] PIL falhou: ' + String(r.stderr || '').slice(0, 300));
+      return null;
+    }
+    try { fs.unlinkSync(ovPath); } catch {}
+    log('[annot] imagem anotada: ' + path.basename(outPath));
+    return outPath;
+  } catch (e) { log('[annot] ' + e.message); return null; }
+});
 ipcMain.handle('ui:show-item', (_e, p) => { shell.showItemInFolder(p); return { ok: true }; });
 ipcMain.handle('ui:get-defaults', () => ({ outDir: OUT_DIR, root: ROOT, comfyDir: COMFY_DIR, port: PORT }));
 

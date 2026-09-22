@@ -27,4 +27,4 @@ http.get('http://127.0.0.1:9223/json', (res) => {
     ws.on('error', (e) => { console.error('CDP_WS_FAIL ' + e.message); process.exit(1); });
   });
 }).on('error', (e) => { console.error('CDP_HTTP_FAIL ' + e.message); process.exit(1); });
-setTimeout(() => { console.error('CDP_TIMEOUT'); process.exit(2); }, 240000);
+setTimeout(() => { console.error('CDP_TIMEOUT'); process.exit(2); }, 600000);
