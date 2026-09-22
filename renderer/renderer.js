@@ -67,7 +67,6 @@ async function refreshGallery() {
 function showResult(it) {
   current = it;
   $('result').src = it.url;
-  $('btnOpenFull').href = it.url;
   $('resultWrap').classList.remove('hidden');
   $('galleryEmpty').classList.add('hidden');
 }
@@ -163,6 +162,7 @@ $('btnGen').onclick = async () => {
 };
 
 $('btnCancel').onclick = () => api.invoke('gen:cancel');
+$('btnOpenFull').onclick = () => { if (current) api.invoke('ui:open-full', current.path); };
 
 // eventos do main
 api.on('ev:log', logLine);

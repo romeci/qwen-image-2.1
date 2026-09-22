@@ -4,7 +4,8 @@ const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
-const { spawn } = require('child_process');
+const { pathToFileURL } = require('url');
+const { spawn, spawnSync } = require('child_process');
 const WebSocket = require('ws');
 
 const ROOT = __dirname;
@@ -23,6 +24,7 @@ const WF_DIR = path.join(ROOT, 'workflows');
 
 let win = null;
 let comfyProc = null;
+let adoptedPid = null; // servidor que ja estava de pé fora do app (mata no fechar p/ liberar VRAM)
 let serverState = 'offline'; // offline | starting | online
 const logBuf = [];
 
@@ -71,9 +73,25 @@ function setServerState(st) {
   emit('ev:server-state', st);
 }
 
+function portPid() {
+  // dono da 8188 (se alguem subiu o ComfyUI fora do app)
+  try {
+    const r = spawnSync('powershell.exe', ['-NoProfile', '-Command', "(Get-NetTCPConnection -LocalPort 8188 -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty OwningProcess)"], { windowsHide: true, encoding: 'utf8' });
+    const pid = parseInt(String(r.stdout || '').trim(), 10);
+    return Number.isFinite(pid) && pid > 0 ? pid : null;
+  } catch { return null; }
+}
+
 async function startServer() {
   if (serverState === 'online' && (await isUp())) return 'online';
   if (serverState === 'starting') return 'starting';
+  if (await isUp()) {
+    // ja de pé fora do app -> adota (e sera encerrado junto ao fechar, p/ liberar VRAM)
+    adoptedPid = portPid();
+    if (adoptedPid && adoptedPid !== process.pid) log(`[comfy] servidor existente adotado (pid ${adoptedPid})`);
+    setServerState('online');
+    return 'online';
+  }
   if (!fs.existsSync(PY_EXE)) {
     throw new Error('Backend não instalado: rode scripts\\setup.ps1 uma vez (veja README-APP.md).');
   }
@@ -105,9 +123,25 @@ async function startServer() {
 }
 
 function stopServer() {
-  if (comfyProc) { try { comfyProc.kill(); } catch {} comfyProc = null; }
+  if (adoptedPid) {
+    // servidor adotado: mata a arvore so se ainda for o ComfyUI (python em Z:\qwen-image-2.1\comfy)
+    try {
+      const chk = spawnSync('powershell.exe', ['-NoProfile', '-Command', `(Get-Process -Id ${adoptedPid} -ErrorAction SilentlyContinue).Path`], { windowsHide: true, encoding: 'utf8' });
+      if (String(chk.stdout || '').toLowerCase().includes('qwen-image-2.1')) {
+        spawnSync('taskkill', ['/PID', String(adoptedPid), '/T', '/F'], { windowsHide: true });
+        log(`[comfy] adotado encerrado (pid ${adoptedPid}) — VRAM liberada`);
+      }
+    } catch {}
+    adoptedPid = null;
+  }
+  if (comfyProc && comfyProc.pid) {
+    // taskkill /T /F: encerra a arvore inteira (garante liberar a VRAM)
+    try { spawnSync('taskkill', ['/PID', String(comfyProc.pid), '/T', '/F'], { windowsHide: true }); } catch {}
+    try { comfyProc.kill(); } catch {}
+    comfyProc = null;
+    log('[comfy] encerrado (VRAM liberada)');
+  }
   setServerState('offline');
-  log('[comfy] parado');
 }
 
 function patchWorkflow(wf, opts) {
@@ -174,8 +208,9 @@ function historyFiles(promptId) {
     for (const out of Object.values(entry.outputs || {})) {
       const imgs = out.images || (out.image ? [out.image] : []);
       for (const im of imgs) {
-        const url = `${BASE}/view?filename=${encodeURIComponent(im.filename)}&subfolder=${encodeURIComponent(im.subfolder || '')}&type=${encodeURIComponent(im.type || 'output')}`;
-        files.push({ filename: im.filename, subfolder: im.subfolder || '', type: im.type || 'output', url });
+        // exibe direto do disco (file://) — nao depende do servidor p/ renderizar
+        const full = path.join(OUT_DIR, im.subfolder || '', im.filename);
+        files.push({ filename: im.filename, subfolder: im.subfolder || '', type: im.type || 'output', path: full, url: pathToFileURL(full).href });
       }
     }
     if (!files.length) throw new Error('geração terminou sem imagem de saída');
@@ -276,7 +311,7 @@ async function listOutputs() {
     names.sort((a, b) => fs.statSync(path.join(OUT_DIR, b)).mtimeMs - fs.statSync(path.join(OUT_DIR, a)).mtimeMs);
     return names.slice(0, 60).map((f) => ({
       filename: f,
-      url: `${BASE}/view?filename=${encodeURIComponent(f)}&subfolder=&type=output`,
+      url: pathToFileURL(path.join(OUT_DIR, f)).href,
       path: path.join(OUT_DIR, f),
       mtime: fs.statSync(path.join(OUT_DIR, f)).mtimeMs,
     }));
@@ -314,6 +349,7 @@ ipcMain.handle('ui:pick-images', async () => {
 });
 ipcMain.handle('ui:list-outputs', () => listOutputs());
 ipcMain.handle('ui:open-folder', (_e, p) => shell.openPath(p || OUT_DIR));
+ipcMain.handle('ui:open-full', (_e, p) => shell.openPath(p));
 ipcMain.handle('ui:show-item', (_e, p) => { shell.showItemInFolder(p); return { ok: true }; });
 ipcMain.handle('ui:get-defaults', () => ({ outDir: OUT_DIR, root: ROOT, comfyDir: COMFY_DIR, port: PORT }));
 
@@ -326,3 +362,6 @@ app.whenReady().then(() => {
 });
 app.on('window-all-closed', () => { stopServer(); app.quit(); });
 app.on('before-quit', () => stopServer());
+process.on('exit', () => stopServer());
+process.on('SIGINT', () => { stopServer(); process.exit(0); });
+process.on('SIGTERM', () => { stopServer(); process.exit(0); });

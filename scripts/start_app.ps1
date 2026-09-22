@@ -13,20 +13,20 @@ Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.SessionId
 }
 Start-Sleep -Seconds 2
 
-# tarefa com LogonType Interactive = janela no DESKTOP do usuario logado (sem XML)
-$action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c cd /d Z:\qwen-image-2.1 && npm start > Z:\qwen-image-2.1\app.log 2>&1" -WorkingDirectory "Z:\qwen-image-2.1"
+# wscript oculto: cmd.exe direto abre o prompt do Windows junto (reclamacao do usuario)
+$action = New-ScheduledTaskAction -Execute "wscript.exe" -Argument '"Z:\qwen-image-2.1\scripts\run_hidden.vbs"' -WorkingDirectory "Z:\qwen-image-2.1"
 $principal = New-ScheduledTaskPrincipal -UserId "desktop\dev" -LogonType Interactive -RunLevel Limited
 Register-ScheduledTask -TaskName $T -Action $action -Principal $principal -Force | Out-Null
-Start-ScheduledTask -TaskName $T
-Write-Host "tarefa '$T' disparada - aguardando janela..."
+Write-Host "tarefa '$T' registrada - disparando..."
 
-for ($i = 0; $i -lt 15; $i++) {
+# olho certo: boot.log escrito pelo proprio main.js (o ssh nao enxerga janelas da sessao 6)
+Remove-Item "Z:\qwen-image-2.1\boot.log" -ErrorAction SilentlyContinue
+Start-ScheduledTask -TaskName $T
+for ($i = 0; $i -lt 20; $i++) {
   Start-Sleep -Seconds 2
-  $w = Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 }
-  if ($w) {
-    Write-Host ("JANELA_OK pid=" + $w.Id + " titulo='" + $w.MainWindowTitle + "' handle=" + $w.MainWindowHandle)
-    exit 0
+  if (Test-Path "Z:\qwen-image-2.1\boot.log") {
+    $b = Get-Content "Z:\qwen-image-2.1\boot.log" -Raw -ErrorAction SilentlyContinue
+    if ($b -match "renderer carregado") { Write-Host "APP_OK: janela criada + renderer carregado"; exit 0 }
   }
 }
-Write-Host "JANELA_NAO_ENCONTRADA em 30s"
-exit 1
+Write-Host "APP_NAO_SUBIU em 40s (veja boot.log/app.log)"; exit 1
