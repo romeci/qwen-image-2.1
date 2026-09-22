@@ -1,1 +1,16 @@
-window.qwen.invoke('server:start').then(r=>JSON.stringify(r))
+new Promise((res) => {
+  window.__lastEditResult = null;
+  __openModal(window.__gallery[0]);
+  __enterEdit().then(() => {
+    const c = document.getElementById('editCanvas');
+    __anno.begin(c.width * 0.30, c.height * 0.30);
+    __anno.move(c.width * 0.68, c.height * 0.72);
+    __anno.end();
+    document.getElementById('editPrompt').value = 'Troque o fundo por uma praia ao por do sol com palmeiras, mantendo o gato intacto.';
+    document.getElementById('editSteps').value = '8';
+    window.__genEdit();
+    const t = setInterval(() => {
+      if (window.__lastEditResult) { clearInterval(t); res(JSON.stringify(window.__lastEditResult)); }
+    }, 2000);
+  });
+})
