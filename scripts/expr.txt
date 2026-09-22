@@ -1,0 +1,1 @@
+window.qwen.invoke('server:start').then(r=>JSON.stringify(r))

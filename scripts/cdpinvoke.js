@@ -1,7 +1,10 @@
 // Uso: node scripts/cdpinvoke.js "expressaoJS"   (avalia no renderer via CDP 127.0.0.1:9223)
 const http = require('http');
 const WebSocket = require('ws');
-const expr = process.argv[2] || '1';
+const fs = require('fs');
+const path = require('path');
+// fallback: expressao em arquivo (evita inferno de escaping de aspas no shell)
+const expr = process.argv[2] || fs.readFileSync(path.join(__dirname, 'expr.txt'), 'utf8');
 
 http.get('http://127.0.0.1:9223/json', (res) => {
   let b = '';

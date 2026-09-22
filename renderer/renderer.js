@@ -208,13 +208,18 @@ async function genEdit() {
   const seed = seedStr ? Number(seedStr) : Math.floor(Math.random() * 2 ** 48);
   if (!Number.isFinite(seed)) { showEditError('Seed inválida.'); return; }
   const [w, h] = SIZES[$('res').value][$('ratio').value];
+  // com anotacao: o modelo precisa saber que os tracos sao marcacao p/ guiar E REMOVER
+  let finalPrompt = prompt;
+  if (edit.anno) {
+    finalPrompt += ' The colored strokes/circle are annotations only: they mark what to edit and must be removed from the output image.';
+  }
   lastGen = 'edit';
   setBusy(true);
   $('editProgressWrap').classList.remove('hidden');
   $('editProgressText').textContent = 'iniciando…';
   const r = await api.invoke('gen:start', {
     mode: 'edit',
-    prompt,
+    prompt: finalPrompt,
     negative: $('negative').value.trim(),
     steps: Number($('editSteps').value) || 25,
     cfg: Number($('cfg').value) || 1,
