@@ -26,13 +26,23 @@ O **modelo principal não baixa** — usa o `.gguf` local, movido pelo setup par
 powershell -NoProfile -ExecutionPolicy Bypass -File Z:\qwen-image-2.1\scripts\setup.ps1
 ```
 
-## Rodar o app
+## Rodar o app (sem terminal)
+
+**Atalho padrão** — duplo clique em **`Qwen Image 2.1`** na Área de Trabalho
+(ou no Menu Iniciar). Abre sem console e sem instalar nada. Recriar atalhos:
+`scripts\mkshortcut.ps1`.
+
+<details><summary>Alternativa por terminal (ou abrir sem atalho)</summary>
 
 ```powershell
 cd Z:\qwen-image-2.1
 npm install   # uma vez (baixa o Electron)
 npm start
 ```
+
+> Nunca `npm start` via SSH — a janela nasce invisível (session 0). O atalho
+> usa `start_app.ps1` → tarefa interativa → `run_hidden.vbs`.
+</details>
 
 O app sobe o ComfyUI automaticamente ao gerar (ou use ▶ Iniciar servidor).
 Saída: `outputs\`. Logs: aba "Log" no rodapé.
