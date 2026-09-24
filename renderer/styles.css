@@ -86,8 +86,9 @@ a.link { text-decoration: none; padding: 9px 16px; border-radius: 9px; border: 1
 .resultwrap img { width: 100%; max-height: 460px; object-fit: contain; background:
   repeating-conic-gradient(#1c2432 0% 25%, #141a24 0% 50%) 0 0 / 22px 22px; border-radius: 10px; border: 1px solid var(--border); }
 .empty { color: var(--muted); font-size: 13px; padding: 30px 0; text-align: center; }
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
-.gallery img { width: 100%; height: 92px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+/* galeria VERTICAL: 1 foto por linha, rolagem so na vertical (dentro do painel) */
+.gallery { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 54vh; overflow-x: hidden; overflow-y: auto; padding-right: 3px; }
+.gallery img { width: 100%; height: 138px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
 .gallery img:hover { border-color: var(--accent); }
 
 .logpane { margin-top: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; }
@@ -122,6 +123,11 @@ a.link { text-decoration: none; padding: 9px 16px; border-radius: 9px; border: 1
 .errbox { flex: 0 1 auto; min-height: 0; max-height: 78px; overflow-y: auto; font-size: 12px; padding: 6px 9px; }
 .thumbs.compact { max-height: 58px; overflow-y: auto; }
 .thumbs.compact img { width: 42px; height: 42px; }
+
+/* papel da marcação (referência de local) */
+.marks { align-items: center; gap: 6px; flex-wrap: nowrap; }
+.marks .lbl { font-size: 12px; white-space: nowrap; }
+.marks .tool { padding: 5px 9px; font-size: 12px; }
 
 /* ferramentas de anotação */
 .tool { background: var(--panel2); border: 1px solid var(--border); color: var(--muted); padding: 6px 11px; border-radius: 9px; cursor: pointer; font-size: 13px; }

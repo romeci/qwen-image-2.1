@@ -146,8 +146,13 @@
             <button id="btnAddRefs" class="ghost sm" title="adicionar imagens de referência (até 10)">＋ refs</button>
           </div>
           <div id="editThumbs" class="thumbs compact"></div>
-          <label class="grow"><span>Prompt — detalhe o ajuste (o círculo/pincel é mostrado ao modelo)</span>
-            <textarea id="editPrompt" placeholder="ex.: troque o fundo por uma praia ao pôr do sol; mantenha o sujeito do círculo intacto"></textarea>
+          <div class="row marks" role="group" aria-label="papel da marcação">
+            <span class="muted lbl">A marcação indica:</span>
+            <button id="markEdit" class="tool active" title="alterar SOMENTE o que está dentro da marca">✏️ alterar aqui</button>
+            <button id="markKeep" class="tool" title="manter EXATAMENTE como está o que está dentro da marca">🔒 manter assim</button>
+          </div>
+          <label class="grow"><span>Prompt — desenhe a marca exatamente sobre a região-alvo e diga o que muda</span>
+            <textarea id="editPrompt" placeholder="ex.: olhos do gato verde-esmeralda — com o círculo sobre os olhos (fora da marca nada muda)"></textarea>
           </label>
           <div class="row params">
             <label><span>Passos</span><input type="number" id="editSteps" value="25" min="1" max="80" /></label>

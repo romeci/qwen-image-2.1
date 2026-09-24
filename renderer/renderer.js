@@ -15,6 +15,7 @@ const edit = {
   target: null,   // path da imagem alvo
   refs: [],       // paths de referencia extra
   tool: 'circle',
+  mark: 'edit',   // papel da marca: 'edit' = alterar dentro | 'keep' = preservar dentro
   anno: false,    // tem anotacao desenhada?
   drawing: false,
   x0: 0, y0: 0,
@@ -61,7 +62,7 @@ async function refreshGallery() {
     const img = document.createElement('img');
     img.src = it.url;
     img.title = it.filename;
-    img.onclick = () => openModal(it);
+    img.onclick = () => { showResult(it); logLine('[ui] pré-visualizando ' + it.filename); };
     g.appendChild(img);
   }
 }
@@ -103,6 +104,9 @@ async function enterEdit(target) {
   edit.target = t.path;
   edit.refs = [];
   edit.anno = false;
+  edit.mark = 'edit';
+  $('markEdit').classList.add('active');
+  $('markKeep').classList.remove('active');
   showEditError('');
   $('editPrompt').value = '';
   showEdit();
@@ -230,10 +234,12 @@ async function genEdit() {
   const seed = seedStr ? Number(seedStr) : Math.floor(Math.random() * 2 ** 48);
   if (!Number.isFinite(seed)) { showEditError('Seed inválida.'); return; }
   const [w, h] = SIZES[$('res').value][$('ratio').value];
-  // com anotacao: o modelo precisa saber que os tracos sao marcacao p/ guiar E REMOVER
+  // com anotacao: diz ao modelo O PAPEL local da marca (e p/ remover os tracos na saida)
   let finalPrompt = prompt;
   if (edit.anno) {
-    finalPrompt += ' The colored strokes/circle are annotations only: they mark what to edit and must be removed from the output image.';
+    finalPrompt += edit.mark === 'keep'
+      ? ' The marked region (circle/painted strokes) must be preserved exactly as it is — do not change anything inside it — and remove the annotation marks from the output image.'
+      : ' The marked region (circle/painted strokes) is the ONLY area to change: apply the requested edit inside it, keep everything else exactly unchanged, and remove the annotation marks from the output image.';
   }
   lastGen = 'edit';
   window.__lastGenResult = null;
@@ -325,7 +331,7 @@ async function genT2i() {
 $('btnSeed').onclick = () => { $('seed').value = String(Math.floor(Math.random() * 2 ** 48)); };
 $('btnEditSeed').onclick = () => { $('editSeed').value = String(Math.floor(Math.random() * 2 ** 48)); };
 $('btnShowItem').onclick = () => { if (current) api.invoke('ui:show-item', current.path); };
-$('btnEditResult').onclick = () => enterEdit(current);
+$('btnEditResult').onclick = () => { if (current) enterEdit(current); };
 $('res').onchange = updateSizeInfo;
 $('ratio').onchange = updateSizeInfo;
 
@@ -348,7 +354,7 @@ document.addEventListener('keydown', (e) => {
 });
 $('btnModalExplorer').onclick = () => { if (current) api.invoke('ui:show-item', current.path); };
 $('btnModalEdit').onclick = () => enterEdit(current);
-$('btnEditBack').onclick = () => openModal(current);
+$('btnEditBack').onclick = closeModal;
 $('btnEditGen').onclick = genEdit;
 $('btnEditCancel').onclick = () => api.invoke('gen:cancel');
 $('btnClearAnno').onclick = clearAnno;
@@ -359,6 +365,8 @@ $('btnAddRefs').onclick = async () => {
   }
   renderEditThumbs();
 };
+$('markEdit').onclick = () => { edit.mark = 'edit'; $('markEdit').classList.add('active'); $('markKeep').classList.remove('active'); };
+$('markKeep').onclick = () => { edit.mark = 'keep'; $('markKeep').classList.add('active'); $('markEdit').classList.remove('active'); };
 $('toolCircle').onclick = () => { edit.tool = 'circle'; $('toolCircle').classList.add('active'); $('toolBrush').classList.remove('active'); };
 $('toolBrush').onclick = () => { edit.tool = 'brush'; $('toolBrush').classList.add('active'); $('toolCircle').classList.remove('active'); };
 
@@ -407,4 +415,5 @@ window.__openModal = openModal;
 window.__enterEdit = enterEdit;
 window.__anno = { begin: annoBegin, move: annoMove, end: annoEnd, clear: clearAnno };
 window.__genEdit = genEdit;
+window.__setMark = (m) => { edit.mark = m; $('markEdit').classList.toggle('active', m === 'edit'); $('markKeep').classList.toggle('active', m === 'keep'); };
 window.__genT2i = genT2i;
