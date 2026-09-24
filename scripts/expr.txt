@@ -1,16 +1,18 @@
-new Promise((res) => {
-  window.__lastEditResult = null;
-  __openModal(window.__gallery[0]);
-  __enterEdit().then(() => {
-    const c = document.getElementById('editCanvas');
-    __anno.begin(c.width * 0.30, c.height * 0.30);
-    __anno.move(c.width * 0.68, c.height * 0.72);
-    __anno.end();
-    document.getElementById('editPrompt').value = 'Troque o fundo por uma praia ao por do sol com palmeiras, mantendo o gato intacto.';
-    document.getElementById('editSteps').value = '8';
-    window.__genEdit();
-    const t = setInterval(() => {
-      if (window.__lastEditResult) { clearInterval(t); res(JSON.stringify(window.__lastEditResult)); }
-    }, 2000);
+(async () => {
+  window.__lastGenResult = null;
+  document.getElementById('prompt').value = 'teste de cancelamento: paisagem de montanha ao amanhecer';
+  document.getElementById('steps').value = '40';
+  const t0 = Date.now();
+  window.__genT2i();
+  await new Promise(r => setTimeout(r, 10000));
+  const tc = Date.now();
+  await window.qwen.invoke('gen:cancel');
+  const r = await new Promise((res) => {
+    const iv = setInterval(() => { if (window.__lastGenResult) { clearInterval(iv); res(window.__lastGenResult); } }, 400);
+    setTimeout(() => { clearInterval(iv); res({ timeout: true }); }, 40000);
   });
-})
+  return JSON.stringify({ cancelRespMs: Date.now() - tc, r,
+    err: document.getElementById('error').textContent.slice(0, 90),
+    genBtnHabilitado: !document.getElementById('btnGen').disabled,
+    logFim: document.getElementById('log').textContent.slice(-260) });
+})()

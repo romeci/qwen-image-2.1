@@ -1,0 +1,11 @@
+[2026-09-24T05:39:20.981Z] [annot] imagem anotada: anot_1790228360385.png
+[2026-09-24T05:39:21.694Z] [comfy] servidor existente adotado (pid 9376)
+[2026-09-24T05:39:22.103Z] [gen] prompt_id=1cc3454b-5674-47c9-a8bc-e81ab0df8ecc
+[2026-09-24T05:39:22.105Z] [gen] execução iniciada (carregando modelo na 1ª vez)...
+[2026-09-24T05:40:47.967Z] [gen] ok: Qwen_edit_00005_.png
+[2026-09-24T05:42:21.731Z] [gen] prompt_id=6617c466-f437-4209-a482-5d42e5755aba
+[2026-09-24T05:42:21.733Z] [gen] execução iniciada (carregando modelo na 1ª vez)...
+[2026-09-24T05:42:31.318Z] [gen] cancel solicitado pela UI
+[2026-09-24T05:42:31.320Z] [gen] interrupt enviado ao ComfyUI
+[2026-09-24T05:42:31.825Z] [gen] execução interrompida (interrupt)
+[2026-09-24T05:42:32.141Z] [gen] cancelado pelo usuário — liberando UI

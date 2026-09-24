@@ -73,16 +73,28 @@ function showResult(it) {
   $('galleryEmpty').classList.add('hidden');
 }
 
-// ---------- modal: visualizar ----------
+// ---------- modal: visualizar / editar ----------
+function showView() {
+  $('modalView').classList.remove('hidden');
+  $('modalViewActs').classList.remove('hidden');
+  $('modalEdit').classList.add('hidden');
+}
+function showEdit() {
+  $('modalView').classList.add('hidden');
+  $('modalViewActs').classList.add('hidden');
+  $('modalEdit').classList.remove('hidden');
+}
 function openModal(it) {
   current = it;
   $('modalTitle').textContent = it.filename;
+  $('mDims').textContent = 'carregando…';
+  $('modalImg').onload = () => { $('mDims').textContent = `${$('modalImg').naturalWidth}×${$('modalImg').naturalHeight} px`; };
   $('modalImg').src = it.url;
-  $('modalView').classList.remove('hidden');
-  $('modalEdit').classList.add('hidden');
+  showView();
   $('modal').classList.remove('hidden');
 }
 function closeModal() { $('modal').classList.add('hidden'); }
+function modalOpen() { return !$('modal').classList.contains('hidden'); }
 
 // ---------- modal: editar ----------
 async function enterEdit(target) {
@@ -93,23 +105,33 @@ async function enterEdit(target) {
   edit.anno = false;
   showEditError('');
   $('editPrompt').value = '';
-  $('modalView').classList.add('hidden');
-  $('modalEdit').classList.remove('hidden');
+  showEdit();
   $('modal').classList.remove('hidden');
   $('modalTitle').textContent = 'Editar — ' + t.filename;
+  $('mDims').textContent = '';
   renderEditThumbs();
 
   // canvas na resolucao NATURAL da imagem (anotacao sem perda)
   const img = $('editImg');
+  img.onerror = null;
   img.src = t.url;
   await new Promise((res) => {
     if (img.complete && img.naturalWidth) return res();
     img.onload = res;
     img.onerror = res;
   });
+  if (!img.naturalWidth) {
+    // imagem nao carregou: diz explicitamente e volta p/ visualizacao
+    showView();
+    showEditError('');
+    showError('Não consegui carregar a imagem: ' + t.filename);
+    logLine('[edit] FALHA ao carregar ' + t.url);
+    return;
+  }
   const cv = $('editCanvas');
   cv.width = img.naturalWidth || 1024;
   cv.height = img.naturalHeight || 1024;
+  $('mDims').textContent = `${cv.width}×${cv.height} px`;
   const rect = img.getBoundingClientRect();
   edit.scale = (img.naturalWidth || 1) / (rect.width || 1);
   clearAnno();
@@ -214,6 +236,7 @@ async function genEdit() {
     finalPrompt += ' The colored strokes/circle are annotations only: they mark what to edit and must be removed from the output image.';
   }
   lastGen = 'edit';
+  window.__lastGenResult = null;
   setBusy(true);
   $('editProgressWrap').classList.remove('hidden');
   $('editProgressText').textContent = 'iniciando…';
@@ -233,17 +256,21 @@ async function genEdit() {
   });
   setBusy(false);
   window.__lastEditResult = r;
+  window.__lastGenResult = r;
   $('editProgressWrap').classList.add('hidden');
   if (r.ok && r.files && r.files.length) {
     // volta p/ visualizacao mostrando o resultado
     showResult(r.files[0]);
     $('modalTitle').textContent = r.files[0].filename;
     $('modalImg').src = r.files[0].url;
-    $('modalEdit').classList.add('hidden');
-    $('modalView').classList.remove('hidden');
+    showView();
     await refreshGallery();
+  } else if (r.cancelled) {
+    // cancelou de proposito: NAO e erro — segue no editor p/ ajustar e tentar de novo
+    logLine('[edit] cancelado pelo usuário');
+    showEditError('⏹ Edição cancelada — ajuste o prompt/anotação e clique em "Gerar edição" para tentar de novo.');
   } else if (!r.ok) {
-    showEditError(r.error);
+    showEditError(r.error || 'erro desconhecido (veja o Log)');
   }
 }
 
@@ -262,6 +289,7 @@ async function genT2i() {
   if (!Number.isFinite(seed)) { showError('Seed inválida.'); return; }
   const [w, h] = SIZES[$('res').value][$('ratio').value];
   lastGen = 't2i';
+  window.__lastGenResult = null;
   setBusy(true);
   $('progressWrap').classList.remove('hidden');
   $('progressText').textContent = 'iniciando…';
@@ -280,12 +308,16 @@ async function genT2i() {
     images: [],
   });
   setBusy(false);
+  window.__lastGenResult = r;
   $('progressWrap').classList.add('hidden');
   if (r.ok && r.files && r.files.length) {
     showResult(r.files[0]);
     await refreshGallery();
+  } else if (r.cancelled) {
+    logLine('[t2i] cancelado pelo usuário');
+    showError('⏹ Geração cancelada.');
   } else if (!r.ok) {
-    showError(r.error);
+    showError(r.error || 'erro desconhecido (veja o Log)');
   }
 }
 
@@ -311,7 +343,9 @@ $('btnCancel').onclick = () => api.invoke('gen:cancel');
 
 // modal
 $('btnModalClose').onclick = closeModal;
-$('modal').onclick = (e) => { if (e.target === $('modal')) closeModal(); };
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modalOpen() && !busy) closeModal();
+});
 $('btnModalExplorer').onclick = () => { if (current) api.invoke('ui:show-item', current.path); };
 $('btnModalEdit').onclick = () => enterEdit(current);
 $('btnEditBack').onclick = () => openModal(current);

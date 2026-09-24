@@ -31,10 +31,22 @@ const logBuf = [];
 function emit(channel, data) {
   if (win && !win.isDestroyed()) win.webContents.send(channel, data);
 }
+const LOG_DIR = path.join(ROOT, 'logs');
+const LOG_FILE = path.join(LOG_DIR, 'ui.log');
+function fileLog(s) {
+  try {
+    fs.mkdirSync(LOG_DIR, { recursive: true });
+    if (fs.existsSync(LOG_FILE) && fs.statSync(LOG_FILE).size > 1500000) {
+      fs.renameSync(LOG_FILE, LOG_FILE + '.old'); // rotaciona simples
+    }
+    fs.appendFileSync(LOG_FILE, `[${new Date().toISOString()}] ${s}\n`);
+  } catch {}
+}
 function log(line) {
   const s = String(line);
   logBuf.push(s);
   if (logBuf.length > 600) logBuf.shift();
+  fileLog(s);
   emit('ev:log', s);
 }
 
@@ -200,9 +212,15 @@ function historyFiles(promptId) {
     if (!entry) throw new Error('histórico sem o prompt_id');
     const st = entry.status || {};
     if (st.status_str === 'error' || st.status_str === 'failure') {
-      const msgs = (st.messages || []).filter((m) => m[0] === 'execution_error');
-      const detail = msgs.length ? JSON.stringify(msgs[0][1]).slice(0, 900) : 'erro de execução';
-      throw new Error(detail);
+      const all = st.messages || [];
+      const isInterrupt = all.some((m) => m[0] === 'execution_interrupted')
+        || JSON.stringify(all).toLowerCase().includes('interrupt');
+      if (isInterrupt) { const e = new Error('CANCELLED'); e.cancelled = true; throw e; }
+      const msgs = all.filter((m) => m[0] === 'execution_error');
+      const detail = msgs.length ? JSON.stringify(msgs[0][1]).slice(0, 900) : 'erro de execução (detalhe em logs/ui.log)';
+      const e = new Error(detail);
+      if (JSON.stringify(all).toLowerCase().includes('interrupt')) e.cancelled = true;
+      throw e;
     }
     const files = [];
     for (const out of Object.values(entry.outputs || {})) {
@@ -260,6 +278,7 @@ function generate(opts) {
       else if (msg.type === 'execution_start') log('[gen] execução iniciada (carregando modelo na 1ª vez)...');
       else if (msg.type === 'executing' && d.node === null) wsDone = true;
       else if (msg.type === 'execution_error') { wsFail = d; log(`[gen] erro no nó ${d.node}: ${d.exception_message}`); }
+      else if (msg.type === 'execution_interrupted') { wsFail = { cancelled: true, node: null, exception_message: 'cancelado' }; log('[gen] execução interrompida (interrupt)'); }
       else if (msg.type === 'execution_success') wsDone = true;
     });
     ws.on('error', (e) => log(`[ws] ${e.message}`));
@@ -293,12 +312,20 @@ function generate(opts) {
     }
     try { ws.close(); } catch {}
 
+    if (wsFail && wsFail.cancelled) {
+      log('[gen] cancelado pelo usuário — liberando UI');
+      return { ok: false, cancelled: true };
+    }
     if (wsFail) throw new Error(`Erro no nó ${wsFail.node}: ${wsFail.exception_message}`);
     if (!files) files = await historyFiles(promptId);
     log(`[gen] ok: ${files.map((f) => f.filename).join(', ')}`);
     emit('ev:gen-done', files);
     return { ok: true, files };
   })().catch((e) => {
+    if (e && e.cancelled) {
+      log('[gen] cancelado pelo usuário — liberando UI');
+      return { ok: false, cancelled: true };
+    }
     log(`[gen] FALHA: ${e.message}`);
     emit('ev:gen-error', e.message);
     return { ok: false, error: e.message };
@@ -338,7 +365,11 @@ ipcMain.handle('server:start', () => startServer().then((s) => ({ ok: true, stat
 ipcMain.handle('server:stop', () => { stopServer(); return { ok: true }; });
 ipcMain.handle('server:status', async () => ({ state: serverState, up: await isUp(), log: logBuf.slice(-200) }));
 ipcMain.handle('gen:start', (_e, opts) => generate(opts));
-ipcMain.handle('gen:cancel', async () => { try { await request('POST', '/interrupt', {}); log('[gen] cancelado'); } catch (e) { log(`[gen] cancel falhou: ${e.message}`); } return { ok: true }; });
+ipcMain.handle('gen:cancel', async () => {
+  log('[gen] cancel solicitado pela UI');
+  try { await request('POST', '/interrupt', {}); log('[gen] interrupt enviado ao ComfyUI'); return { ok: true }; }
+  catch (e) { log(`[gen] cancel falhou: ${e.message}`); return { ok: false, error: e.message }; }
+});
 ipcMain.handle('ui:pick-images', async () => {
   const r = await dialog.showOpenDialog(win, {
     title: 'Selecionar imagens de referência',
