@@ -240,14 +240,17 @@ function generate(opts) {
   return (async () => {
     await startServer();
 
-    if (opts.mode === 'edit') {
-      if (!opts.images || !opts.images.length) throw new Error('Selecione ao menos 1 imagem para edição.');
-      // copia as imagens escolhidas para o input do ComfyUI com nome único
+    if (opts.mode === 'edit' && (!opts.images || !opts.images.length)) {
+      throw new Error('Selecione ao menos 1 imagem para edição.');
+    }
+    // staging p/ QUALQUER modo (base + refs do edit, refs do t2i)
+    if (opts.images && opts.images.length) {
       fs.mkdirSync(INPUT_DIR, { recursive: true });
       const stamp = Date.now();
       const staged = [];
       for (let i = 0; i < opts.images.length; i++) {
         const src = opts.images[i];
+        if (!fs.existsSync(src)) throw new Error('Imagem de referência não encontrada: ' + src);
         const ext = path.extname(src) || '.png';
         const name = `qapp_${stamp}_${i}${ext}`;
         fs.copyFileSync(src, path.join(INPUT_DIR, name));
@@ -414,6 +417,28 @@ ipcMain.handle('ui:save-annot', (_e, p) => {
   } catch (e) { log('[annot] ' + e.message); return null; }
 });
 ipcMain.handle('ui:show-item', (_e, p) => { shell.showItemInFolder(p); return { ok: true }; });
+// excluir = mover p/ a LIXEIRA do Windows (recuperavel); so aceita paths dentro de outputs
+ipcMain.handle('ui:delete-images', (_e, p) => {
+  try {
+    const paths = (p && p.paths) || [];
+    if (!paths.length) return { ok: false, error: 'nenhuma imagem selecionada' };
+    for (const f of paths) {
+      if (!f.startsWith(OUT_DIR)) return { ok: false, error: 'caminho fora de outputs: ' + f };
+      if (!fs.existsSync(f)) return { ok: false, error: 'arquivo não existe: ' + f };
+    }
+    fs.mkdirSync(path.join(ROOT, 'tmp'), { recursive: true });
+    const listFile = path.join(ROOT, 'tmp', 'del_' + Date.now() + '.txt');
+    fs.writeFileSync(listFile, paths.join('\n'));
+    const script = path.join(ROOT, 'scripts', 'del_to_trash.ps1');
+    const r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-ListFile', listFile], { windowsHide: true, encoding: 'utf8' });
+    try { fs.unlinkSync(listFile); } catch {}
+    const out = String(r.stdout || '').trim();
+    log(`[del] lixeira: ${out.replace(/\r?\n/g, ', ')} (status=${r.status})`);
+    if (r.status !== 0) return { ok: false, error: out || String(r.stderr || 'falha ao mover p/ lixeira') };
+    const deleted = out.split(/\r?\n/).filter(Boolean);
+    return { ok: true, deleted };
+  } catch (e) { log('[del] ' + e.message); return { ok: false, error: e.message }; }
+});
 ipcMain.handle('ui:get-defaults', () => ({ outDir: OUT_DIR, root: ROOT, comfyDir: COMFY_DIR, port: PORT }));
 
 app.whenReady().then(() => {

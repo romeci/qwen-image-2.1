@@ -11,14 +11,21 @@
   --err: #ff5c6c;
 }
 * { box-sizing: border-box; }
+/* zero barras de rolagem em toda a UI (wheel/touch ainda rolam) */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
+html, body { height: 100%; overflow: hidden; }
 body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
   font: 14px/1.45 "Segoe UI", system-ui, sans-serif;
-  padding: 14px 18px 24px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+header { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .brand { display: flex; gap: 12px; align-items: center; }
 .logo { font-size: 30px; background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 h1 { margin: 0; font-size: 19px; }
@@ -36,10 +43,11 @@ h1 .sub { color: var(--accent); font-weight: 600; }
 .tab { background: var(--panel); border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 9px; cursor: pointer; font-size: 14px; }
 .tab.active { color: var(--text); border-color: var(--accent); background: var(--panel2); }
 
-main { display: grid; grid-template-columns: minmax(380px, 46%) 1fr; gap: 16px; align-items: start; }
-@media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(340px, 46%) 1fr; gap: 14px; align-items: stretch; }
 
-.controls { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+.controls { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.controls label.grow { min-height: 90px; }
+.controls label.grow textarea { flex: 1 1 auto; min-height: 70px; resize: none; }
 label { display: flex; flex-direction: column; gap: 5px; font-size: 12.5px; color: var(--muted); }
 label.grow { flex: 1; }
 label.inline { flex-direction: row; align-items: center; gap: 7px; }
@@ -56,6 +64,8 @@ textarea:focus, input:focus, select:focus { outline: none; border-color: var(--a
 details.neg { background: var(--panel2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 12px; }
 details.neg summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 details.neg label, details.neg .row { margin-top: 9px; }
+.refsrow { align-items: center; gap: 8px; flex-wrap: wrap; }
+.refsrow .thumbs { flex: 1 1 auto; min-width: 0; }
 
 .editbox { background: var(--panel2); border: 1px dashed var(--border); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 9px; }
 .hidden { display: none !important; }
@@ -80,20 +90,23 @@ a.link { text-decoration: none; padding: 9px 16px; border-radius: 9px; border: 1
 .fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.25s; }
 .error { background: #2a1216; border: 1px solid var(--err); color: #ffb3bb; padding: 9px 11px; border-radius: 9px; font-size: 13px; white-space: pre-wrap; }
 
-.output { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; min-height: 320px; }
+.output { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 12px; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow: hidden; }
+.selbar { flex: 0 0 auto; align-items: center; gap: 8px; flex-wrap: wrap; }
+.selbar button { padding: 7px 12px; font-size: 13px; }
 .output h3 { margin: 14px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
-.resultwrap { display: flex; flex-direction: column; gap: 10px; }
-.resultwrap img { width: 100%; max-height: 460px; object-fit: contain; background:
+.resultwrap { display: flex; flex-direction: column; gap: 8px; flex: 0 1 auto; min-height: 0; }
+.resultwrap img { width: 100%; max-height: min(38vh, 300px); object-fit: contain; background:
   repeating-conic-gradient(#1c2432 0% 25%, #141a24 0% 50%) 0 0 / 22px 22px; border-radius: 10px; border: 1px solid var(--border); }
-.empty { color: var(--muted); font-size: 13px; padding: 30px 0; text-align: center; }
-/* galeria VERTICAL: 1 foto por linha, rolagem so na vertical (dentro do painel) */
-.gallery { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 54vh; overflow-x: hidden; overflow-y: auto; padding-right: 3px; }
-.gallery img { width: 100%; height: 138px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+.empty { color: var(--muted); font-size: 13px; padding: 14px 0; text-align: center; flex: 0 0 auto; }
+/* grade uniforme: N thumbs por linha e "quebra" na proxima linha; mais novas no topo */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; flex: 1 1 auto; min-height: 0; overflow-x: hidden; overflow-y: auto; align-content: start; }
+.gallery img { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; border: 2px solid var(--border); cursor: pointer; }
 .gallery img:hover { border-color: var(--accent); }
+.gallery img.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(77,163,255,.45); }
 
-.logpane { margin-top: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 6px 12px; }
+.logpane { flex: 0 1 auto; min-height: 0; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 5px 12px; overflow: hidden; }
 .logpane summary { cursor: pointer; color: var(--muted); font-size: 13px; }
-#log { max-height: 220px; overflow: auto; font: 11.5px/1.5 Consolas, monospace; color: #9fb0c8; white-space: pre-wrap; }
+#log { max-height: 110px; overflow-y: auto; font: 11.5px/1.5 Consolas, monospace; color: #9fb0c8; white-space: pre-wrap; }
 
 /* ===== Modal FULLSCREEN responsivo — ocupa a janela do app, SEM rolagem ===== */
 .modal { position: fixed; inset: 0; z-index: 60; background: var(--bg); display: flex; }

@@ -77,6 +77,11 @@
         </label>
       </div>
 
+      <div class="row refsrow">
+        <button id="btnAddMainRefs" class="ghost" title="ate 4 imagens de referencia usadas junto com o prompt">🖼️ Referências <span id="mainRefsCount" class="muted">(0/4)</span></button>
+        <div id="mainRefs" class="thumbs compact"></div>
+      </div>
+
       <div class="actions">
         <button id="btnGen" class="primary">🎨 Gerar</button>
         <button id="btnCancel" class="danger" disabled>■ Cancelar</button>
@@ -99,7 +104,13 @@
           <button id="btnEditResult" class="primary">✏️ Editar</button>
         </div>
       </div>
-      <div id="galleryEmpty" class="empty">As imagens geradas aparecem aqui. Clique numa miniatura p/ abrir.</div>
+      <div id="galleryEmpty" class="empty">As imagens geradas aparecem aqui. Clique numa miniatura para selecionar (duplo clique pré-visualiza).</div>
+      <div class="row selbar">
+        <button id="btnSelectAll" class="ghost" disabled>☑ Selecionar todas</button>
+        <button id="btnSelExplorer" class="ghost" disabled>🧭 Explorer</button>
+        <button id="btnSelEdit" class="primary" disabled>✏️ Editar</button>
+        <button id="btnSelDelete" class="danger" disabled>🗑️ Excluir</button>
+      </div>
       <h3>Galeria <span class="muted" id="galleryCount"></span></h3>
       <div id="gallery" class="gallery"></div>
     </section>

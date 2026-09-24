@@ -9,6 +9,8 @@ const SIZES = {
 let current = null;      // item visivel {filename, url, path}
 let busy = false;        // geracao em curso (t2i OU edicao)
 let lastGen = 't2i';     // 't2i' | 'edit' — contexto do progresso
+const MAX_REFS = 4;      // limite pedido: ate 4 imagens de referencia
+const uiState = { refs: [], sel: new Set() };  // refs do t2i + selecao da galeria
 
 // estado da edicao no modal
 const edit = {
@@ -58,13 +60,41 @@ async function refreshGallery() {
   g.innerHTML = '';
   $('galleryCount').textContent = items.length ? `(${items.length})` : '';
   $('galleryEmpty').classList.toggle('hidden', items.length > 0);
+  // mantem so o que ainda existe (selecao sobrevive aos re-render)
+  for (const p of [...uiState.sel]) if (!items.some((i) => i.path === p)) uiState.sel.delete(p);
   for (const it of items) {
     const img = document.createElement('img');
     img.src = it.url;
     img.title = it.filename;
-    img.onclick = () => { showResult(it); logLine('[ui] pré-visualizando ' + it.filename); };
+    if (uiState.sel.has(it.path)) img.classList.add('sel');
+    img.onclick = () => toggleSel(it, img);
+    img.ondblclick = () => { showResult(it); logLine('[ui] pré-visualizando ' + it.filename); };
     g.appendChild(img);
   }
+  updateSelBar();
+}
+
+// ---------- selecao multipla (1 clique = selecionar; duplo = pre-visualizar) ----------
+function toggleSel(it, img) {
+  if (uiState.sel.has(it.path)) uiState.sel.delete(it.path);
+  else uiState.sel.add(it.path);
+  img.classList.toggle('sel', uiState.sel.has(it.path));
+  updateSelBar();
+}
+function updateSelBar() {
+  const n = uiState.sel.size;
+  const total = window.__gallery ? window.__gallery.length : 0;
+  $('btnSelectAll').disabled = total === 0;
+  $('btnSelectAll').textContent = n < total ? '☑ Selecionar todas' : '☐ Limpar seleção';
+  // 1 imagem: pode editar; N imagens: so explorer + excluir
+  $('btnSelEdit').disabled = busy || n !== 1;
+  $('btnSelExplorer').disabled = n < 1;
+  $('btnSelDelete').disabled = busy || n < 1;
+  $('galleryCount').textContent = total ? (n ? `(${total} — ${n} selecionada${n > 1 ? 's' : ''})` : `(${total})`) : '';
+}
+async function selItems() {
+  const items = await api.invoke('ui:list-outputs');
+  return items.filter((i) => uiState.sel.has(i.path));
 }
 
 function showResult(it) {
@@ -227,7 +257,7 @@ async function genEdit() {
   if (busy) return;
   showEditError('');
   const prompt = $('editPrompt').value.trim();
-  if (!prompt) { showEditError('Escreva o que ajustar no prompt.'); return; }
+  if (!prompt && !edit.anno && !edit.refs.length) { showEditError('Escreva o que ajustar, desenhe uma marca ou adicione referências.'); return; }
   let target;
   try { target = await exportAnnotated(); } catch (e) { showEditError(e.message); return; }
   const seedStr = $('editSeed').value.trim();
@@ -285,7 +315,7 @@ async function genT2i() {
   if (busy) return;
   showError('');
   const prompt = $('prompt').value.trim();
-  if (!prompt) { showError('Escreva um prompt.'); return; }
+  if (!prompt && !uiState.refs.length) { showError('Escreva um prompt ou adicione imagens de referência.'); return; }
   let finalPrompt = prompt;
   if ($('rgba').checked) {
     finalPrompt = `This is an RGBA image with transparency. ${prompt}. The image has alpha channel and the background is transparent.`;
@@ -311,7 +341,7 @@ async function genT2i() {
     sampler: $('sampler').value,
     scheduler: $('scheduler').value,
     customSize: false,
-    images: [],
+    images: uiState.refs.slice(0, MAX_REFS),
   });
   setBusy(false);
   window.__lastGenResult = r;
@@ -344,6 +374,36 @@ $('btnServer').onclick = async () => {
   if (!r.ok) { setServerState('offline'); showError(r.error); } else setServerState('online');
 };
 
+$('btnSelectAll').onclick = () => {
+  const items = window.__gallery || [];
+  if (uiState.sel.size < items.length) items.forEach((i) => uiState.sel.add(i.path));
+  else uiState.sel.clear();
+  document.querySelectorAll('#gallery img').forEach((img, idx) => {
+    const it = items[idx];
+    if (it) img.classList.toggle('sel', uiState.sel.has(it.path));
+  });
+  updateSelBar();
+};
+$('btnSelExplorer').onclick = async () => {
+  const items = await selItems();
+  for (const it of items) api.invoke('ui:show-item', it.path);
+};
+$('btnSelEdit').onclick = async () => {
+  const items = await selItems();
+  if (items.length === 1) enterEdit(items[0]);
+};
+$('btnSelDelete').onclick = async () => {
+  const items = await selItems();
+  if (!items.length) return;
+  const nomes = items.map((i) => i.filename).join(', ');
+  const r = await api.invoke('ui:delete-images', { paths: items.map((i) => i.path) });
+  if (!r || !r.ok) { showError('Falha ao excluir: ' + ((r && r.error) || 'erro desconhecido')); return; }
+  items.forEach((i) => uiState.sel.delete(i.path));
+  logLine('[ui] movidos p/ lixeira: ' + nomes);
+  showError('');
+  await refreshGallery();
+};
+
 $('btnGen').onclick = genT2i;
 $('btnCancel').onclick = () => api.invoke('gen:cancel');
 
@@ -356,12 +416,41 @@ $('btnModalExplorer').onclick = () => { if (current) api.invoke('ui:show-item', 
 $('btnModalEdit').onclick = () => enterEdit(current);
 $('btnEditBack').onclick = closeModal;
 $('btnEditGen').onclick = genEdit;
+
+// ---------- referencias do t2i (ate 4) ----------
+function renderMainRefs() {
+  const box = $('mainRefs');
+  box.innerHTML = '';
+  $('mainRefsCount').textContent = `(${uiState.refs.length}/${MAX_REFS})`;
+  uiState.refs.forEach((p, i) => {
+    const d = document.createElement('div');
+    d.className = 'th';
+    const img = document.createElement('img');
+    img.src = 'file:///' + p.replace(/\\/g, '/');
+    const n = document.createElement('span');
+    n.textContent = '×';
+    n.title = 'remover';
+    n.onclick = () => { uiState.refs.splice(i, 1); renderMainRefs(); };
+    const sm = document.createElement('small');
+    sm.textContent = p.split(/[\\/]/).pop().slice(0, 12);
+    d.append(n, img, sm);
+    box.appendChild(d);
+  });
+}
+$('btnAddMainRefs').onclick = async () => {
+  const picked = await api.invoke('ui:pick-images');
+  for (const p of picked) {
+    if (uiState.refs.length >= MAX_REFS) break;
+    if (!uiState.refs.includes(p)) uiState.refs.push(p);
+  }
+  renderMainRefs();
+};
 $('btnEditCancel').onclick = () => api.invoke('gen:cancel');
 $('btnClearAnno').onclick = clearAnno;
 $('btnAddRefs').onclick = async () => {
   const picked = await api.invoke('ui:pick-images');
   for (const p of picked) {
-    if (edit.refs.length < 9 && p !== edit.target && !edit.refs.includes(p)) edit.refs.push(p);
+    if (edit.refs.length < MAX_REFS && p !== edit.target && !edit.refs.includes(p)) edit.refs.push(p);
   }
   renderEditThumbs();
 };
@@ -415,5 +504,9 @@ window.__openModal = openModal;
 window.__enterEdit = enterEdit;
 window.__anno = { begin: annoBegin, move: annoMove, end: annoEnd, clear: clearAnno };
 window.__genEdit = genEdit;
+window.__state = uiState;
+window.__updateSelBar = updateSelBar;
+window.__renderMainRefs = renderMainRefs;
+window.__refresh = refreshGallery;
 window.__setMark = (m) => { edit.mark = m; $('markEdit').classList.toggle('active', m === 'edit'); $('markKeep').classList.toggle('active', m === 'keep'); };
 window.__genT2i = genT2i;

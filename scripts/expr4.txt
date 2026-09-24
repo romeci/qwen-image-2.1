@@ -1,0 +1,23 @@
+(() => {
+  const out = {};
+  out.larguras = { innerWidth: window.innerWidth,
+    bodyW: document.body.clientWidth,
+    mainW: document.querySelector('main').clientWidth,
+    outputW: document.querySelector('.output').clientWidth };
+  const g = document.getElementById('gallery');
+  out.gridComputado = getComputedStyle(g).gridTemplateColumns;
+  out.gridInline = g.style.gridTemplateColumns;
+  // acha a regra .gallery viva na stylesheet
+  out.regras = [];
+  for (const ss of document.styleSheets) {
+    try {
+      for (const r of ss.cssRules) {
+        if (r.selectorText && r.selectorText.includes('.gallery')) {
+          out.regras.push(r.cssText.slice(0, 240));
+        }
+      }
+    } catch (e) { out.regras.push('ERR:' + e.message); }
+  }
+  out.cssHref = document.querySelector('link[rel=stylesheet]').href;
+  return JSON.stringify(out);
+})()
