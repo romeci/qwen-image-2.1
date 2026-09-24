@@ -107,8 +107,9 @@ function portPid() {
 async function startServer() {
   if (serverState === 'online' && (await isUp())) return 'online';
   if (serverState === 'starting') return 'starting';
-  if (await isUp()) {
-    // ja de pé fora do app -> adota (e sera encerrado junto ao fechar, p/ liberar VRAM)
+  if (await isUp() && await isUp()) {
+    // ja de pe fora do app (2 batidas seguidas p/ nao adotar porta em morte)
+    // -> adota (e sera encerrado junto ao fechar, p/ liberar VRAM)
     adoptedPid = portPid();
     if (adoptedPid && adoptedPid !== process.pid) log(`[comfy] servidor existente adotado (pid ${adoptedPid})`);
     setServerState('online');
@@ -297,6 +298,13 @@ function generate(opts) {
     ws.on('error', (e) => log(`[ws] ${e.message}`));
 
     await new Promise((r) => setTimeout(r, 400)); // dá tempo do WS conectar
+    // a porta pode ter caido entre o "adotado" e o POST: reconfirma e reinicia se precise
+    if (!(await isUp())) {
+      log('[comfy] porta caiu antes do POST - reiniciando servidor');
+      serverState = 'offline';
+      await startServer();
+      await new Promise((r) => setTimeout(r, 400));
+    }
     emit('ev:progress', { value: 0, max: 0, title: 'na fila...' });
     const resp = await request('POST', '/prompt', { prompt: wf, client_id: clientId });
     const promptId = resp.prompt_id;

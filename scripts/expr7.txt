@@ -1,14 +1,11 @@
-// conecta no CDP do exe e faz a geracao SEM timeout curto (poll ate __lastGenResult ou 560s)
 (async () => {
-  const st = await window.qwen.invoke('server:status');
-  if (!st.up) { await window.qwen.invoke('server:start'); }
   window.__lastGenResult = null;
   document.getElementById('prompt').value = 'um cartoon colorido de uma raposa com lenco vermelho, estilo aquarela';
   document.getElementById('steps').value = '6';
   window.__genT2i();
   const r = await new Promise((res) => {
     const iv = setInterval(() => { if (window.__lastGenResult) { clearInterval(iv); res(window.__lastGenResult); } }, 2000);
-    setTimeout(() => { clearInterval(iv); res({ waitTimeout: true }); }, 540000);
+    setTimeout(() => { clearInterval(iv); res({ timeout: true }); }, 560000);
   });
   return JSON.stringify(r);
 })()
