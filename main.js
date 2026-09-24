@@ -8,9 +8,19 @@ const { pathToFileURL } = require('url');
 const { spawn, spawnSync } = require('child_process');
 const WebSocket = require('ws');
 
-const ROOT = __dirname;
-// diagnostico de boot: anexa ao app.log (tarefa ja redireciona stdout/stderr p/ ele)
+// raiz dos dados: em dev = a pasta do projeto; empacotado (exe em
+// Z:\qwen-image-2.1\app\dist\win-unpacked) = sobe ate Z:\qwen-image-2.1
 const mlog = (m) => { try { fs.appendFileSync(path.join(ROOT, 'boot.log'), `[main] ${m}\n`); } catch {} };
+let ROOT = __dirname;
+if (app.isPackaged) {
+  // sobe ate achar a raiz do projeto (pasta que contem comfy\ComfyUI)
+  let d = path.dirname(app.getPath('exe'));
+  for (let i = 0; i < 6 && d !== path.parse(d).root; i++) {
+    if (fs.existsSync(path.join(d, 'comfy', 'ComfyUI'))) { ROOT = d; break; }
+    d = path.dirname(d);
+  }
+  mlog('packaged ROOT=' + ROOT);
+}
 process.on('uncaughtException', (e) => mlog('uncaught: ' + (e && (e.stack || e.message || e))));
 process.on('unhandledRejection', (e) => mlog('unhandled: ' + (e && (e.stack || e.message || JSON.stringify(e)))));
 mlog('boot pid=' + process.pid);

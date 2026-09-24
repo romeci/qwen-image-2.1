@@ -18,3 +18,8 @@
 [2026-09-24T05:51:13.789Z] [gen] prompt_id=7f8aedc9-70e6-492a-af68-1656411b6adc
 [2026-09-24T05:51:13.791Z] [gen] execução iniciada (carregando modelo na 1ª vez)...
 [2026-09-24T05:52:04.253Z] [gen] ok: Qwen_edit_00007_.png
+[2026-09-24T06:09:36.454Z] [del] lixeira: lixo_teste_zz.png (status=0)
+[2026-09-24T06:09:40.726Z] [comfy] servidor existente adotado (pid 9376)
+[2026-09-24T06:09:41.137Z] [gen] prompt_id=46cddf23-d7d8-4782-ae1f-7fc38477573a
+[2026-09-24T06:09:41.139Z] [gen] execução iniciada (carregando modelo na 1ª vez)...
+[2026-09-24T06:10:29.186Z] [gen] ok: Qwen_t2i_00003_.png

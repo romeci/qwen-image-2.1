@@ -1,16 +1,39 @@
 {
-  "name": "qwen-image-2.1-desktop",
+  "name": "qwen-image-2-1-desktop",
   "version": "0.1.0",
   "description": "App desktop Electron para Qwen-Image-2.1 (backend ComfyUI + GGUF local)",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "npx electron-builder --win portable --publish never && npx electron-builder --dir --publish never"
   },
   "license": "MIT",
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "electron": "^33.0.0"
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "br.com.romeci.qwenimage21",
+    "productName": "Qwen Image 2.1",
+    "directories": {
+      "output": "app/dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "win": {
+      "target": [
+        "portable",
+        "dir"
+      ]
+    },
+    "portable": {
+      "artifactName": "QwenImage21-Desktop.exe"
+    }
   }
 }
