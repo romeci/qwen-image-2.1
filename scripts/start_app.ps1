@@ -5,6 +5,13 @@
 $ErrorActionPreference = "Stop"
 $T = "HermesQwenApp"
 
+# ja aberto? (filtra SO o electron do app - o Hermes/electron do sistema nao conta)
+$mine = Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "Z:\qwen-image-2.1\node_modules\electron\*" }
+if ($mine) {
+  Write-Host ("APP_JA_ABERTO pid=" + (($mine | Select-Object -First 1).Id))
+  exit 0
+}
+
 # mata SOTO os electron orfaos da session 0 (ssh) - os da sessao 6 (desktop do
 # usuario, ex.: Hermes) nao sao tocados
 Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq 0 } | ForEach-Object {
